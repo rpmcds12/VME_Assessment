@@ -73,17 +73,17 @@ _EXEC_SUMMARY_TEMPLATE = (
     "Total VMs Analyzed: {total}\n"
     "\n"
     "SUMMARY\n"
-    "{officially_supported_count} VMs ({officially_supported_pct}%) are Officially Supported "
+    "{officially_supported_count} {officially_supported_vms} ({officially_supported_pct}%) are Officially Supported "
     "and validated by HPE for migration to VM Essentials.\n"
-    "{unofficially_supported_count} VMs ({unofficially_supported_pct}%) are Unofficially "
+    "{unofficially_supported_count} {unofficially_supported_vms} ({unofficially_supported_pct}%) are Unofficially "
     "Supported — KVM-compatible but not HPE-validated; recommend non-production testing.\n"
-    "{supported_vdi_count} VMs ({supported_vdi_pct}%) are Supported VDI workloads "
+    "{supported_vdi_count} {supported_vdi_vms} ({supported_vdi_pct}%) are Supported VDI workloads "
     "(Citrix, Omnissa Horizon, or HP Anyware) validated for VME.\n"
-    "{needs_review_count} VMs ({needs_review_pct}%) require review with the customer "
+    "{needs_review_count} {needs_review_vms} ({needs_review_pct}%) require review with the customer "
     "to confirm OS version or compatibility.\n"
-    "{needs_info_count} VMs ({needs_info_pct}%) have insufficient OS data for "
+    "{needs_info_count} {needs_info_vms} ({needs_info_pct}%) have insufficient OS data for "
     "classification — additional information required.\n"
-    "{not_supported_count} VMs ({not_supported_pct}%) are Not Supported on the KVM "
+    "{not_supported_count} {not_supported_vms} ({not_supported_pct}%) are Not Supported on the KVM "
     "hypervisor and will require OS upgrade, re-platforming, or retention on VMware.\n"
     "\n"
     "This analysis was generated using the HPE VM Essentials compatibility matrix. "
@@ -275,21 +275,37 @@ class OutputBuilder:
 
         customer_suffix = f" — {customer_name}" if customer_name else ""
 
+        def vm_word(n: int) -> str:
+            return "VM" if n == 1 else "VMs"
+
+        os_count = counts.get(TIER_OFFICIALLY_SUPPORTED, 0)
+        un_count = counts.get(TIER_UNOFFICIALLY_SUPPORTED, 0)
+        vdi_count = counts.get(TIER_SUPPORTED_VDI, 0)
+        rev_count = counts.get(TIER_NEEDS_REVIEW, 0)
+        inf_count = counts.get(TIER_NEEDS_INFO, 0)
+        ns_count = counts.get(TIER_NOT_SUPPORTED, 0)
+
         narrative = _EXEC_SUMMARY_TEMPLATE.format(
             customer_suffix=customer_suffix,
             date=datetime.now().strftime("%Y-%m-%d"),
             total=total,
-            officially_supported_count=counts.get(TIER_OFFICIALLY_SUPPORTED, 0),
+            officially_supported_count=os_count,
+            officially_supported_vms=vm_word(os_count),
             officially_supported_pct=pct(TIER_OFFICIALLY_SUPPORTED),
-            unofficially_supported_count=counts.get(TIER_UNOFFICIALLY_SUPPORTED, 0),
+            unofficially_supported_count=un_count,
+            unofficially_supported_vms=vm_word(un_count),
             unofficially_supported_pct=pct(TIER_UNOFFICIALLY_SUPPORTED),
-            supported_vdi_count=counts.get(TIER_SUPPORTED_VDI, 0),
+            supported_vdi_count=vdi_count,
+            supported_vdi_vms=vm_word(vdi_count),
             supported_vdi_pct=pct(TIER_SUPPORTED_VDI),
-            needs_review_count=counts.get(TIER_NEEDS_REVIEW, 0),
+            needs_review_count=rev_count,
+            needs_review_vms=vm_word(rev_count),
             needs_review_pct=pct(TIER_NEEDS_REVIEW),
-            needs_info_count=counts.get(TIER_NEEDS_INFO, 0),
+            needs_info_count=inf_count,
+            needs_info_vms=vm_word(inf_count),
             needs_info_pct=pct(TIER_NEEDS_INFO),
-            not_supported_count=counts.get(TIER_NOT_SUPPORTED, 0),
+            not_supported_count=ns_count,
+            not_supported_vms=vm_word(ns_count),
             not_supported_pct=pct(TIER_NOT_SUPPORTED),
         )
 
