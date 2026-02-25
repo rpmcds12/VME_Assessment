@@ -82,7 +82,7 @@ def test_raises_on_missing_rvtools_columns(parser: FileParser, tmp_path: Path) -
 
     with pytest.raises(MissingColumnsError) as exc_info:
         parser.parse(xlsx.read_bytes(), "rvtools_incomplete.xlsx")
-    assert "OS according to configuration file" in exc_info.value.missing
+    assert any("configuration file" in m for m in exc_info.value.missing)
 
 
 def test_raises_on_cloudphysics_missing_guest_os_column(parser: FileParser, tmp_path: Path) -> None:

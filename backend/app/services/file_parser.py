@@ -57,17 +57,22 @@ class VMRow:
 # Column signatures used for format detection
 # ---------------------------------------------------------------------------
 
-_RVTOOLS_SIGNATURE = {"VM", "OS according to VMware Tools"}
 _CLOUDPHYSICS_SIGNATURE = {"VM Name", "Guest OS"}
-
-_RVTOOLS_REQUIRED = {
-    "VM",
-    "OS according to VMware Tools",
-    "OS according to configuration file",
-}
 _CLOUDPHYSICS_REQUIRED = {"VM Name", "Guest OS"}
 
 _RVTOOLS_TARGET_SHEET = "vInfo"
+
+# RVTools changed column names between versions — handle both.
+# Old (≤4.x): "OS according to VMware Tools" / "OS according to configuration file"
+# New (4.5+):  "OS according to the VMware Tools" / "OS according to the configuration file"
+_RVTOOLS_OS_TOOLS_VARIANTS = [
+    "OS according to the VMware Tools",  # newer RVTools
+    "OS according to VMware Tools",      # older RVTools
+]
+_RVTOOLS_CFG_VARIANTS = [
+    "OS according to the configuration file",  # newer RVTools
+    "OS according to configuration file",      # older RVTools
+]
 
 
 # ---------------------------------------------------------------------------
@@ -140,37 +145,50 @@ class FileParser:
         # Check for RVTools: prefer vInfo sheet, fall back to scanning all sheets
         candidate_sheet = self._find_rvtools_sheet(excel)
         if candidate_sheet is not None:
-            cols = set(pd.read_excel(excel, sheet_name=candidate_sheet, nrows=0).columns)
-            if _RVTOOLS_SIGNATURE.issubset(cols):
-                return "rvtools"
+            return "rvtools"
 
         # Check for CloudPhysics: first sheet
         first_sheet = excel.sheet_names[0]
         cols = set(pd.read_excel(excel, sheet_name=first_sheet, nrows=0).columns)
-        if _CLOUDPHYSICS_SIGNATURE.issubset(cols) and not _RVTOOLS_SIGNATURE.issubset(cols):
+        if _CLOUDPHYSICS_SIGNATURE.issubset(cols):
             return "cloudphysics"
 
         # Log sheet names and columns to aid diagnosis
         for sheet in excel.sheet_names:
             try:
-                cols = sorted(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
+                sheet_cols = sorted(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
             except Exception:
-                cols = ["<unreadable>"]
-            logger.warning("Unrecognized file sheet=%r columns=%s", sheet, cols)
+                sheet_cols = ["<unreadable>"]
+            logger.warning("Unrecognized file sheet=%r columns=%s", sheet, sheet_cols)
         raise UnsupportedFormatError(
             f"'{filename}' does not match RVTools or CloudPhysics format. "
             "Ensure you are uploading a valid RVTools vInfo export or a CloudPhysics VM export."
         )
 
     def _find_rvtools_sheet(self, excel: pd.ExcelFile) -> Optional[str]:
-        """Return the name of the best candidate sheet for RVTools data."""
+        """Return the name of the best candidate sheet for RVTools data, or None."""
         if _RVTOOLS_TARGET_SHEET in excel.sheet_names:
-            return _RVTOOLS_TARGET_SHEET
-        # Fall back: scan all sheets for the signature columns
+            cols = set(pd.read_excel(excel, sheet_name=_RVTOOLS_TARGET_SHEET, nrows=0).columns)
+            if self._has_rvtools_os_col(cols):
+                return _RVTOOLS_TARGET_SHEET
+        # Fall back: scan all sheets
         for sheet in excel.sheet_names:
             cols = set(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
-            if _RVTOOLS_SIGNATURE.issubset(cols):
+            if "VM" in cols and self._has_rvtools_os_col(cols):
                 return sheet
+        return None
+
+    @staticmethod
+    def _has_rvtools_os_col(cols: set) -> bool:
+        """True if the column set contains any known RVTools OS-tools column variant."""
+        return any(c in cols for c in _RVTOOLS_OS_TOOLS_VARIANTS)
+
+    @staticmethod
+    def _resolve_col(df_cols, variants: list[str]) -> Optional[str]:
+        """Return the first variant found in df_cols, or None."""
+        for c in variants:
+            if c in df_cols:
+                return c
         return None
 
     # ------------------------------------------------------------------
@@ -182,8 +200,17 @@ class FileParser:
         sheet = self._find_rvtools_sheet(excel)
         df = pd.read_excel(excel, sheet_name=sheet, dtype=str)
 
-        # Validate required columns
-        missing = [c for c in _RVTOOLS_REQUIRED if c not in df.columns]
+        # Resolve column names (handle old vs new RVTools naming)
+        os_tools_col = self._resolve_col(df.columns, _RVTOOLS_OS_TOOLS_VARIANTS)
+        os_cfg_col = self._resolve_col(df.columns, _RVTOOLS_CFG_VARIANTS)
+
+        missing = []
+        if "VM" not in df.columns:
+            missing.append("VM")
+        if os_tools_col is None:
+            missing.append("OS according to [the] VMware Tools")
+        if os_cfg_col is None:
+            missing.append("OS according to [the] configuration file")
         if missing:
             raise MissingColumnsError(missing)
 
@@ -193,8 +220,8 @@ class FileParser:
             if not vm_name:
                 continue
 
-            os_primary = self._clean(row.get("OS according to VMware Tools"))
-            os_fallback = self._clean(row.get("OS according to configuration file"))
+            os_primary = self._clean(row.get(os_tools_col))
+            os_fallback = self._clean(row.get(os_cfg_col))
 
             host_cluster = self._clean(row.get("Cluster") or row.get("Host"))
 
