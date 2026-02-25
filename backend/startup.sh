@@ -1,8 +1,7 @@
 #!/bin/bash
-# Azure App Service startup script
-# Runs from /home/site/wwwroot after zip deploy
-
-cd /home/site/wwwroot
+# Azure App Service startup script.
+# Oryx extracts the deployment to a temp directory and invokes this script
+# from within that directory — do NOT cd to /home/site/wwwroot.
 
 gunicorn \
   -w 4 \
