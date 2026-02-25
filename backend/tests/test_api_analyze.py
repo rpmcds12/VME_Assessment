@@ -149,11 +149,10 @@ def test_analyze_rejects_oversized_file(client: TestClient) -> None:
     assert body["code"] == "FILE_TOO_LARGE"
 
 
-def test_analyze_rejects_non_xlsx(client: TestClient) -> None:
-    csv_bytes = b"VM Name,Guest OS\nmy-vm,Windows Server 2022\n"
+def test_analyze_rejects_unsupported_extension(client: TestClient) -> None:
     resp = client.post(
         "/api/analyze",
-        files={"file": ("inventory.csv", io.BytesIO(csv_bytes), "text/csv")},
+        files={"file": ("inventory.txt", io.BytesIO(b"some data"), "text/plain")},
     )
     assert resp.status_code == 400
     body = resp.json()

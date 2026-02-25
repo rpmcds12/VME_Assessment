@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from io import BytesIO
+from io import BytesIO, StringIO
 from typing import Optional
 
 import pandas as pd
@@ -81,10 +81,10 @@ _RVTOOLS_CFG_VARIANTS = [
 
 
 class FileParser:
-    """Parses RVTools and CloudPhysics .xlsx exports into structured VMRow lists."""
+    """Parses RVTools and CloudPhysics .xlsx/.csv exports into structured VMRow lists."""
 
     def parse(self, file_bytes: bytes, filename: str) -> list[VMRow]:
-        """Parse an uploaded xlsx file and return a list of VMRow objects.
+        """Parse an uploaded file and return a list of VMRow objects.
 
         Args:
             file_bytes: Raw bytes of the uploaded file.
@@ -95,19 +95,22 @@ class FileParser:
 
         Raises:
             FileTooLargeError: If file exceeds MAX_UPLOAD_SIZE_MB.
-            UnsupportedFormatError: If file is not .xlsx or not RVTools/CloudPhysics.
+            UnsupportedFormatError: If file is not .xlsx/.csv or not RVTools/CloudPhysics.
             MissingColumnsError: If required columns are absent.
         """
         self._validate_extension(filename)
         self._validate_size(file_bytes, filename)
 
-        excel = pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
-        detected_format = self._detect_format(excel, filename)
-
-        if detected_format == "rvtools":
-            rows = self._extract_rvtools(excel, filename)
+        if filename.lower().endswith(".csv"):
+            rows = self._parse_csv(file_bytes, filename)
+            detected_format = "cloudphysics"
         else:
-            rows = self._extract_cloudphysics(excel, filename)
+            excel = pd.ExcelFile(BytesIO(file_bytes), engine="openpyxl")
+            detected_format = self._detect_format(excel, filename)
+            if detected_format == "rvtools":
+                rows = self._extract_rvtools(excel, filename)
+            else:
+                rows = self._extract_cloudphysics(excel, filename)
 
         logger.info(
             "File upload received: format=%s, rows=%d, filename=%s",
@@ -122,10 +125,10 @@ class FileParser:
     # ------------------------------------------------------------------
 
     def _validate_extension(self, filename: str) -> None:
-        """Raise UnsupportedFormatError if filename does not end with .xlsx."""
-        if not filename.lower().endswith(".xlsx"):
+        """Raise UnsupportedFormatError if filename does not end with .xlsx or .csv."""
+        if not filename.lower().endswith((".xlsx", ".csv")):
             raise UnsupportedFormatError(
-                f"Unsupported file type: '{filename}'. Only .xlsx files are accepted."
+                f"Unsupported file type: '{filename}'. Only .xlsx and .csv files are accepted."
             )
 
     def _validate_size(self, file_bytes: bytes, filename: str) -> None:
@@ -147,10 +150,9 @@ class FileParser:
         if candidate_sheet is not None:
             return "rvtools"
 
-        # Check for CloudPhysics: first sheet
-        first_sheet = excel.sheet_names[0]
-        cols = set(pd.read_excel(excel, sheet_name=first_sheet, nrows=0).columns)
-        if _CLOUDPHYSICS_SIGNATURE.issubset(cols):
+        # Check for CloudPhysics: scan all sheets (data may not be on the first sheet)
+        cp_sheet = self._find_cloudphysics_sheet(excel)
+        if cp_sheet is not None:
             return "cloudphysics"
 
         # Log sheet names and columns to aid diagnosis
@@ -176,6 +178,17 @@ class FileParser:
             cols = set(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
             if "VM" in cols and self._has_rvtools_os_col(cols):
                 return sheet
+        return None
+
+    def _find_cloudphysics_sheet(self, excel: pd.ExcelFile) -> Optional[str]:
+        """Return the name of the sheet containing CloudPhysics data, or None."""
+        for sheet in excel.sheet_names:
+            try:
+                cols = set(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
+                if _CLOUDPHYSICS_SIGNATURE.issubset(cols):
+                    return sheet
+            except Exception:
+                pass
         return None
 
     @staticmethod
@@ -248,17 +261,65 @@ class FileParser:
     # CloudPhysics extraction
     # ------------------------------------------------------------------
 
-    def _extract_cloudphysics(self, excel: pd.ExcelFile, filename: str) -> list[VMRow]:
-        """Extract VMRow list from a CloudPhysics export."""
-        first_sheet = excel.sheet_names[0]
-        df = pd.read_excel(excel, sheet_name=first_sheet, dtype=str)
+    def _parse_csv(self, file_bytes: bytes, filename: str) -> list[VMRow]:
+        """Parse a CloudPhysics CSV export, skipping any metadata rows above the header.
+
+        CloudPhysics CSVs have 6 metadata rows before the actual column headers:
+          Row 1: "Guest OS Analysis for {Customer}"
+          Row 2: blank
+          Row 3: "Applied Filters"
+          Row 4: "None"
+          Row 5: blank
+          Row 6: "Table Data"
+          Row 7: header row ("VM Name", "Tags", "Guest OS", ...)
+        This method dynamically finds the header row rather than hard-coding a skip count.
+        """
+        try:
+            text = file_bytes.decode("utf-8-sig")  # handles UTF-8 BOM from Windows
+        except UnicodeDecodeError:
+            text = file_bytes.decode("latin-1")
+
+        # Find the header row: first row containing both "VM Name" and "Guest OS"
+        lines = text.splitlines()
+        header_row_idx = None
+        for i, line in enumerate(lines):
+            if "VM Name" in line and "Guest OS" in line:
+                header_row_idx = i
+                break
+
+        if header_row_idx is None:
+            raise UnsupportedFormatError(
+                f"'{filename}' does not match CloudPhysics CSV format. "
+                "Could not find a header row containing 'VM Name' and 'Guest OS'."
+            )
+
+        df = pd.read_csv(StringIO(text), skiprows=header_row_idx, dtype=str)
 
         missing = [c for c in _CLOUDPHYSICS_REQUIRED if c not in df.columns]
         if missing:
             raise MissingColumnsError(missing)
 
+        return self._extract_cloudphysics_df(df)
+
+    def _extract_cloudphysics(self, excel: pd.ExcelFile, filename: str) -> list[VMRow]:
+        """Extract VMRow list from a CloudPhysics xlsx export."""
+        sheet = self._find_cloudphysics_sheet(excel)
+        if sheet is None:
+            raise UnsupportedFormatError(
+                f"'{filename}' does not contain a recognizable CloudPhysics sheet."
+            )
+        df = pd.read_excel(excel, sheet_name=sheet, dtype=str)
+
+        missing = [c for c in _CLOUDPHYSICS_REQUIRED if c not in df.columns]
+        if missing:
+            raise MissingColumnsError(missing)
+
+        return self._extract_cloudphysics_df(df)
+
+    def _extract_cloudphysics_df(self, df: pd.DataFrame) -> list[VMRow]:
+        """Extract VMRow list from a CloudPhysics DataFrame (shared by xlsx and CSV paths)."""
         rows: list[VMRow] = []
-        for excel_row_idx, (_, row) in enumerate(df.iterrows(), start=2):
+        for row_idx, (_, row) in enumerate(df.iterrows(), start=2):
             vm_name = self._clean(row.get("VM Name"))
             if not vm_name:
                 continue
@@ -273,7 +334,7 @@ class FileParser:
                     os_raw_primary=os_primary,
                     os_raw_fallback=None,
                     source_format="cloudphysics",
-                    row_index=excel_row_idx,
+                    row_index=row_idx,
                 )
             )
 

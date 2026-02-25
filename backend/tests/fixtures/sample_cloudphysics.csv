@@ -1,0 +1,12 @@
+Guest OS Analysis for Test Customer
+,
+Applied Filters
+None
+,
+Table Data
+VM Name,Tags,Severity,VM State,Guest OS,End of Support,32/64 bits,vCPU,vRAM (GB),Tools Installed
+cp-web-01,"",Normal,Powered On,Microsoft Windows Server 2019 Standard,9 Jan 2029,64-bit,4,8.00,Installed
+cp-db-01,"",Normal,Powered On,Microsoft Windows Server 2016 Standard,,64-bit,8,32.00,Installed
+cp-linux-01,"",Normal,Powered On,Red Hat Enterprise Linux 8,,64-bit,4,16.00,Installed
+cp-unknown-01,"",Normal,Powered Off,,,64-bit,2,4.00,Not Installed
+,,,,,,,,,

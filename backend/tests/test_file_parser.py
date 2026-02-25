@@ -16,6 +16,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 RVTOOLS_BYTES = (FIXTURES / "sample_rvtools.xlsx").read_bytes()
 CLOUDPHYSICS_BYTES = (FIXTURES / "sample_cloudphysics.xlsx").read_bytes()
+CLOUDPHYSICS_CSV_BYTES = (FIXTURES / "sample_cloudphysics.csv").read_bytes()
 
 
 @pytest.fixture
@@ -50,9 +51,9 @@ def test_raises_on_unknown_format(parser: FileParser, tmp_path: Path) -> None:
         parser.parse(xlsx.read_bytes(), "random.xlsx")
 
 
-def test_raises_on_non_xlsx(parser: FileParser) -> None:
-    with pytest.raises(UnsupportedFormatError, match=r"\.xlsx"):
-        parser.parse(b"dummy", "inventory.csv")
+def test_raises_on_unsupported_extension(parser: FileParser) -> None:
+    with pytest.raises(UnsupportedFormatError):
+        parser.parse(b"dummy", "inventory.txt")
 
 
 def test_raises_on_non_xlsx_xls(parser: FileParser) -> None:
@@ -181,6 +182,75 @@ def test_cloudphysics_null_cluster_when_empty(parser: FileParser) -> None:
     rows = parser.parse(CLOUDPHYSICS_BYTES, "cp_export.xlsx")
     unknown = next(r for r in rows if r.vm_name == "cp-unknown-01")
     assert unknown.host_cluster is None
+
+
+# ---------------------------------------------------------------------------
+# CloudPhysics CSV parsing
+# ---------------------------------------------------------------------------
+
+
+def test_cloudphysics_csv_parses_successfully(parser: FileParser) -> None:
+    rows = parser.parse(CLOUDPHYSICS_CSV_BYTES, "export.csv")
+    assert len(rows) > 0
+    assert all(r.source_format == "cloudphysics" for r in rows)
+
+
+def test_cloudphysics_csv_skips_metadata_rows(parser: FileParser) -> None:
+    """Metadata rows (header, filters, 'Table Data') must not appear as VM records."""
+    rows = parser.parse(CLOUDPHYSICS_CSV_BYTES, "export.csv")
+    vm_names = [r.vm_name for r in rows]
+    assert "Applied Filters" not in vm_names
+    assert "Table Data" not in vm_names
+    assert "None" not in vm_names
+
+
+def test_cloudphysics_csv_extracts_os(parser: FileParser) -> None:
+    rows = parser.parse(CLOUDPHYSICS_CSV_BYTES, "export.csv")
+    web = next(r for r in rows if r.vm_name == "cp-web-01")
+    assert web.os_raw_primary == "Microsoft Windows Server 2019 Standard"
+
+
+def test_cloudphysics_csv_no_fallback(parser: FileParser) -> None:
+    rows = parser.parse(CLOUDPHYSICS_CSV_BYTES, "export.csv")
+    assert all(r.os_raw_fallback is None for r in rows)
+
+
+def test_cloudphysics_csv_skips_blank_vm_names(parser: FileParser) -> None:
+    rows = parser.parse(CLOUDPHYSICS_CSV_BYTES, "export.csv")
+    assert all(r.vm_name != "" for r in rows)
+
+
+def test_cloudphysics_csv_unrecognized_content_raises(parser: FileParser) -> None:
+    """A CSV that doesn't have 'VM Name' and 'Guest OS' columns raises UnsupportedFormatError."""
+    csv_bytes = b"col1,col2\nval1,val2\n"
+    with pytest.raises(UnsupportedFormatError):
+        parser.parse(csv_bytes, "random.csv")
+
+
+# ---------------------------------------------------------------------------
+# CloudPhysics xlsx — multi-sheet detection
+# ---------------------------------------------------------------------------
+
+
+def test_cloudphysics_xlsx_detected_on_non_first_sheet(
+    parser: FileParser, tmp_path: Path
+) -> None:
+    """CloudPhysics data on the second sheet (not the first) must still be detected."""
+    import pandas as pd
+
+    xlsx = tmp_path / "cp_multisheet.xlsx"
+    with pd.ExcelWriter(str(xlsx), engine="openpyxl") as writer:
+        pd.DataFrame({"Identification Key": ["A"], "Notes": ["B"]}).to_excel(
+            writer, sheet_name="Identification Key", index=False
+        )
+        pd.DataFrame(
+            {"VM Name": ["srv-01"], "Guest OS": ["Windows Server 2022"], "Cluster": [""]}
+        ).to_excel(writer, sheet_name="CP Data", index=False)
+
+    rows = parser.parse(xlsx.read_bytes(), "cp_multisheet.xlsx")
+    assert len(rows) == 1
+    assert rows[0].vm_name == "srv-01"
+    assert rows[0].source_format == "cloudphysics"
 
 
 # ---------------------------------------------------------------------------
