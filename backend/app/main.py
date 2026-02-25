@@ -24,10 +24,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Initialize database tables and seed data on startup."""
     logger.info("Starting up — initializing database.")
-    init_db()
-    with SessionLocal() as db:
-        seed_database(db)
-    logger.info("Database ready.")
+    try:
+        init_db()
+        with SessionLocal() as db:
+            seed_database(db)
+        logger.info("Database ready.")
+    except Exception as exc:
+        logger.error(
+            "Database initialization failed — app starting in degraded mode: %s",
+            exc,
+            exc_info=True,
+        )
     yield
     logger.info("Shutting down.")
 
