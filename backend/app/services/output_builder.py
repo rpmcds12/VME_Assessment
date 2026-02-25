@@ -45,7 +45,7 @@ _FONT_SANS = "IBM Plex Sans"
 
 # Light blue for Windows Desktop (10/11) rows — distinguished from the
 # standard green used for other Officially Supported OS entries.
-_WINDOWS_DESKTOP_ROW_BG = "FFD1E9FF"
+_WINDOWS_DESKTOP_ROW_BG = "FFB9D9F8"  # sky-200-ish, matches the medium pastel palette
 
 _VM_DETAIL_HEADERS = [
     "VM Name",
@@ -256,7 +256,7 @@ class OutputBuilder:
                 end_color=TIER_ROW_BG[tier],
                 fill_type="solid",
             )
-            row_font = Font(name=_FONT_SANS, color="FFF9FAFB")
+            row_font = Font(name=_FONT_SANS, color="FF000000")
 
             ws.cell(row=row_num, column=1, value=TIER_DISPLAY_NAMES[tier]).fill = row_fill
             ws.cell(row=row_num, column=2, value=count).fill = row_fill
@@ -333,15 +333,13 @@ class OutputBuilder:
             not_supported_pct=pct(TIER_NOT_SUPPORTED),
         )
 
-        page_fill = PatternFill(start_color=_LOGO_BG, end_color=_LOGO_BG, fill_type="solid")
-        page_font = Font(name=_FONT_SANS, color="FFF9FAFB")
+        page_font = Font(name=_FONT_SANS, color="FF000000")
 
         start_row = 3
         for line_offset, line in enumerate(narrative.splitlines()):
             row_num = start_row + line_offset
             cell = ws.cell(row=row_num, column=1, value=line)
             cell.font = page_font
-            cell.fill = page_fill
             cell.alignment = Alignment(wrap_text=True, vertical="top")
 
         ws.column_dimensions["A"].width = 90
