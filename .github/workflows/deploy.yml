@@ -91,12 +91,38 @@ jobs:
         env:
           KUDU_USER: ${{ secrets.AZURE_KUDU_USER }}
           KUDU_PASS: ${{ secrets.AZURE_KUDU_PASS }}
+          SCM_URL: "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net"
         run: |
-          curl -X POST \
-            "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zipdeploy" \
+          # Upload zip asynchronously — returns 202 immediately, build runs server-side
+          HTTP_CODE=$(curl -X POST \
+            "${SCM_URL}/api/zipdeploy?isAsync=true" \
             --user "${KUDU_USER}:${KUDU_PASS}" \
             --data-binary @deploy.zip \
-            --fail \
-            --show-error \
             --silent \
-            -w "\nHTTP %{http_code}\n"
+            -w "%{http_code}" \
+            -o /dev/null)
+          echo "Upload HTTP code: ${HTTP_CODE}"
+          if [ "${HTTP_CODE}" != "202" ] && [ "${HTTP_CODE}" != "200" ]; then
+            echo "Upload failed with HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+
+          # Poll deployments/latest until status=4 (Success) or status=3 (Failed)
+          echo "Build in progress..."
+          for i in $(seq 1 30); do
+            sleep 30
+            STATUS=$(curl -s \
+              "${SCM_URL}/api/deployments/latest" \
+              --user "${KUDU_USER}:${KUDU_PASS}" \
+              | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',0))" 2>/dev/null || echo "0")
+            echo "  poll ${i}/30 — status ${STATUS}"
+            if [ "${STATUS}" = "4" ]; then
+              echo "Deployment succeeded."
+              exit 0
+            elif [ "${STATUS}" = "3" ]; then
+              echo "Deployment failed — check Kudu logs."
+              exit 1
+            fi
+          done
+          echo "Timed out waiting for deployment (15 min)."
+          exit 1
