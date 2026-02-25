@@ -57,7 +57,7 @@ class VMRow:
 # Column signatures used for format detection
 # ---------------------------------------------------------------------------
 
-_RVTOOLS_SIGNATURE = {"VM", "Powerstate", "OS according to VMware Tools"}
+_RVTOOLS_SIGNATURE = {"VM", "OS according to VMware Tools"}
 _CLOUDPHYSICS_SIGNATURE = {"VM Name", "Guest OS"}
 
 _RVTOOLS_REQUIRED = {
@@ -150,6 +150,13 @@ class FileParser:
         if _CLOUDPHYSICS_SIGNATURE.issubset(cols) and not _RVTOOLS_SIGNATURE.issubset(cols):
             return "cloudphysics"
 
+        # Log sheet names and columns to aid diagnosis
+        for sheet in excel.sheet_names:
+            try:
+                cols = sorted(pd.read_excel(excel, sheet_name=sheet, nrows=0).columns)
+            except Exception:
+                cols = ["<unreadable>"]
+            logger.warning("Unrecognized file sheet=%r columns=%s", sheet, cols)
         raise UnsupportedFormatError(
             f"'{filename}' does not match RVTools or CloudPhysics format. "
             "Ensure you are uploading a valid RVTools vInfo export or a CloudPhysics VM export."
