@@ -257,6 +257,34 @@ def test_executive_summary_no_customer_name(builder: OutputBuilder) -> None:
     assert "Executive Summary" in wb.sheetnames
 
 
+def test_executive_summary_singular_vm_word(builder: OutputBuilder) -> None:
+    """Counts of 1 should produce 'VM', not 'VMs'."""
+    vms = _all_tier_vms()  # 1 VM per tier
+    wb = load_workbook(io.BytesIO(builder.build(vms)))
+    ws = wb["Executive Summary"]
+    all_text = " ".join(
+        str(ws.cell(row=r, column=1).value or "")
+        for r in range(1, ws.max_row + 1)
+    )
+    assert "1 VMs" not in all_text
+    assert "1 VM" in all_text
+
+
+def test_executive_summary_plural_vm_word(builder: OutputBuilder) -> None:
+    """Counts > 1 should produce 'VMs'."""
+    from app.models.constants import TIER_NOT_SUPPORTED
+
+    vms = [_vm(vm_name=f"vm-{i}", tier=TIER_OFFICIALLY_SUPPORTED) for i in range(3)]
+    vms += [_vm(vm_name="vm-ns", tier=TIER_NOT_SUPPORTED)]
+    wb = load_workbook(io.BytesIO(builder.build(vms)))
+    ws = wb["Executive Summary"]
+    all_text = " ".join(
+        str(ws.cell(row=r, column=1).value or "")
+        for r in range(1, ws.max_row + 1)
+    )
+    assert "3 VMs" in all_text
+
+
 # ---------------------------------------------------------------------------
 # Filename generation
 # ---------------------------------------------------------------------------
