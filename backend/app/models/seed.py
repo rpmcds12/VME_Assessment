@@ -47,7 +47,7 @@ _VME_MATRIX_SEED: list[dict] = [
         "os_vendor": "Microsoft",
         "os_family": "Windows Desktop",
         "os_versions": "10,11",
-        "classification_tier": TIER_OFFICIALLY_SUPPORTED,
+        "classification_tier": TIER_SUPPORTED_VDI,
         "notes": "HPE validated",
     },
     {

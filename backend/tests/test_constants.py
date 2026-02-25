@@ -38,7 +38,7 @@ def test_tier_colors_has_entry_for_every_tier():
 
 def test_tier_color_values_match_design_system():
     """Verify colors match design-system.md (source of truth)."""
-    assert TIER_COLORS[TIER_OFFICIALLY_SUPPORTED] == "#10B981"
+    assert TIER_COLORS[TIER_OFFICIALLY_SUPPORTED] == "#059669"
     # Violet — from design-system.md, NOT the old #14B8A6 in project-plan.md
     assert TIER_COLORS[TIER_UNOFFICIALLY_SUPPORTED] == "#8B5CF6"
     assert TIER_COLORS[TIER_SUPPORTED_VDI] == "#14B8A6"

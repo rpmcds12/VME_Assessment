@@ -368,8 +368,8 @@ def test_pipeline_fallback_os_used_when_primary_empty(db_session) -> None:
     # Primary was empty; fallback "Microsoft Windows 10 (64-bit)" was used
     assert app_dev.notes is not None
     assert "fallback" in app_dev.notes.lower()
-    # Windows 10 is officially_supported
-    assert app_dev.classification_tier == TIER_OFFICIALLY_SUPPORTED
+    # Windows 10 is supported_vdi
+    assert app_dev.classification_tier == TIER_SUPPORTED_VDI
 
 
 def test_pipeline_empty_os_vm_gets_needs_info(db_session) -> None:

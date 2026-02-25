@@ -43,10 +43,6 @@ _DATA_FONT_COLOR = "FF111827"   # dark text on light pastel row fills
 _FONT_MONO = "IBM Plex Mono"
 _FONT_SANS = "IBM Plex Sans"
 
-# Light blue for Windows Desktop (10/11) rows — distinguished from the
-# standard green used for other Officially Supported OS entries.
-_WINDOWS_DESKTOP_ROW_BG = "FFB9D9F8"  # sky-200-ish, matches the medium pastel palette
-
 _VM_DETAIL_HEADERS = [
     "VM Name",
     "Host/Cluster",
@@ -174,11 +170,7 @@ class OutputBuilder:
             row_num = header_row + 1 + row_offset
             last_data_row = row_num
 
-            # Windows Desktop (10/11) gets a distinct light-blue tint
-            if "Windows Desktop" in vm.os_interpreted:
-                bg = _WINDOWS_DESKTOP_ROW_BG
-            else:
-                bg = TIER_ROW_BG[vm.classification_tier]
+            bg = TIER_ROW_BG[vm.classification_tier]
 
             row_fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
             data_font = Font(name=_FONT_MONO, color=_DATA_FONT_COLOR)

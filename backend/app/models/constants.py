@@ -20,7 +20,7 @@ ALL_TIERS = [
 # Hex colors for Excel cell fills and frontend badges.
 # Source of truth: design-system.md — takes precedence over project-plan.md.
 TIER_COLORS: dict[str, str] = {
-    TIER_OFFICIALLY_SUPPORTED: "#10B981",
+    TIER_OFFICIALLY_SUPPORTED: "#059669",
     TIER_UNOFFICIALLY_SUPPORTED: "#8B5CF6",
     TIER_SUPPORTED_VDI: "#14B8A6",
     TIER_NEEDS_REVIEW: "#F59E0B",
@@ -41,7 +41,7 @@ TIER_DISPLAY_NAMES: dict[str, str] = {
 # Row background tint colors for xlsx fills (ARGB format: FF = full opacity).
 # Medium pastel tones (Tailwind 200-shade) — visible but not overpowering.
 TIER_ROW_BG: dict[str, str] = {
-    TIER_OFFICIALLY_SUPPORTED: "FFA7F3D0",   # green-200
+    TIER_OFFICIALLY_SUPPORTED: "FF6EE7B7",   # green-300
     TIER_UNOFFICIALLY_SUPPORTED: "FFDDD6FE",  # violet-200
     TIER_SUPPORTED_VDI: "FF99F6E4",           # teal-200
     TIER_NEEDS_REVIEW: "FFFDE68A",            # amber-200
