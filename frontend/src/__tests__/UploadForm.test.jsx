@@ -6,7 +6,7 @@ import UploadForm from '../components/UploadForm.jsx';
 describe('UploadForm', () => {
   it('renders idle state correctly', () => {
     render(<UploadForm onSubmit={vi.fn()} isProcessing={false} />);
-    expect(screen.getByText('Drop .xlsx file here or click to browse')).toBeInTheDocument();
+    expect(screen.getByText('Drop .xlsx or .csv file here or click to browse')).toBeInTheDocument();
     expect(screen.getByText('RVTools or CloudPhysics export')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Analyze' })).toBeInTheDocument();
   });
@@ -20,7 +20,7 @@ describe('UploadForm', () => {
     render(<UploadForm onSubmit={vi.fn()} isProcessing={false} />);
 
     const input = document.querySelector('input[type="file"]');
-    const badFile = new File(['data'], 'inventory.csv', { type: 'text/csv' });
+    const badFile = new File(['data'], 'inventory.xls', { type: 'application/vnd.ms-excel' });
 
     // Use fireEvent to bypass accept attribute validation in userEvent
     Object.defineProperty(input, 'files', {
@@ -30,8 +30,20 @@ describe('UploadForm', () => {
     fireEvent.change(input);
 
     expect(
-      screen.getByText(/Only \.xlsx files are accepted/),
+      screen.getByText(/Only \.xlsx and \.csv files are accepted/),
     ).toBeInTheDocument();
+  });
+
+  it('accepts a .csv file without showing an error', async () => {
+    render(<UploadForm onSubmit={vi.fn()} isProcessing={false} />);
+
+    const input = document.querySelector('input[type="file"]');
+    const csvFile = new File(['VM Name,Guest OS\nvm1,Windows\n'], 'export.csv', { type: 'text/csv' });
+
+    await userEvent.upload(input, csvFile);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyze' })).toBeEnabled();
   });
 
   it('enables Analyze button after valid file is selected', async () => {

@@ -2,8 +2,11 @@ import { useRef, useState } from 'react';
 import { CloudUpload, File, X } from 'lucide-react';
 import styles from './UploadForm.module.css';
 
-const ACCEPTED_MIME =
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const ACCEPTED_MIME = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'application/csv',
+].join(',');
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -20,8 +23,8 @@ function UploadForm({ onSubmit, isProcessing }) {
 
   function handleFile(incoming) {
     if (!incoming) return;
-    if (!incoming.name.endsWith('.xlsx')) {
-      setFileError('Only .xlsx files are accepted. Please select a valid RVTools or CloudPhysics export.');
+    if (!incoming.name.endsWith('.xlsx') && !incoming.name.endsWith('.csv')) {
+      setFileError('Only .xlsx and .csv files are accepted. Please select a valid RVTools or CloudPhysics export.');
       setFile(null);
       return;
     }
@@ -143,7 +146,7 @@ function UploadForm({ onSubmit, isProcessing }) {
         ) : (
           <div className={styles.zoneContent}>
             <CloudUpload size={32} className={styles.uploadIcon} aria-hidden="true" />
-            <span className={styles.zoneLabel}>Drop .xlsx file here or click to browse</span>
+            <span className={styles.zoneLabel}>Drop .xlsx or .csv file here or click to browse</span>
             <span className={styles.zoneSubtext}>RVTools or CloudPhysics export</span>
           </div>
         )}
