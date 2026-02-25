@@ -103,7 +103,7 @@ def test_vm_detail_column_headers_correct(simple_wb) -> None:
     ws = simple_wb["VM Detail"]
     expected = [
         "VM Name", "Host/Cluster", "OS (Raw)", "OS (Interpreted)",
-        "Classification", "Classification Color", "Classification Reason",
+        "Classification", "Classification Reason",
         "Migration Path", "Notes",
     ]
     # Header is on row 2 (row 1 = logo)
@@ -158,7 +158,7 @@ def test_notes_written_when_present(builder: OutputBuilder) -> None:
     vms = [_vm(notes="Low confidence match: 0.65")]
     wb = load_workbook(io.BytesIO(builder.build(vms)))
     ws = wb["VM Detail"]
-    notes_cell = ws.cell(row=3, column=9)
+    notes_cell = ws.cell(row=3, column=8)
     assert notes_cell.value == "Low confidence match: 0.65"
 
 
@@ -166,7 +166,7 @@ def test_notes_empty_string_when_none(builder: OutputBuilder) -> None:
     vms = [_vm(notes=None)]
     wb = load_workbook(io.BytesIO(builder.build(vms)))
     ws = wb["VM Detail"]
-    notes_cell = ws.cell(row=3, column=9)
+    notes_cell = ws.cell(row=3, column=8)
     assert notes_cell.value in ("", None)
 
 

@@ -39,11 +39,12 @@ TIER_DISPLAY_NAMES: dict[str, str] = {
 }
 
 # Row background tint colors for xlsx fills (ARGB format: FF = full opacity).
+# Light pastel tones — readable with dark text on a white-background sheet.
 TIER_ROW_BG: dict[str, str] = {
-    TIER_OFFICIALLY_SUPPORTED: "FF052E1A",
-    TIER_UNOFFICIALLY_SUPPORTED: "FF1A0A2E",
-    TIER_SUPPORTED_VDI: "FF042322",
-    TIER_NEEDS_REVIEW: "FF2D1A00",
-    TIER_NEEDS_INFO: "FF00082F",
-    TIER_NOT_SUPPORTED: "FF2D0A14",
+    TIER_OFFICIALLY_SUPPORTED: "FFD1FAE5",   # light green
+    TIER_UNOFFICIALLY_SUPPORTED: "FFEDE9FE",  # light purple
+    TIER_SUPPORTED_VDI: "FFCCFBF1",           # light teal
+    TIER_NEEDS_REVIEW: "FFFEF3C7",            # light amber
+    TIER_NEEDS_INFO: "FFDBEAFE",              # light blue
+    TIER_NOT_SUPPORTED: "FFFEE2E2",           # light red
 }

@@ -12,6 +12,7 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from app.models.constants import (
     ALL_TIERS,
@@ -38,8 +39,13 @@ _LOGO_PATH = _ASSETS_DIR / "USSBlueBurst.png"
 _HEADER_BG = "FF1F2937"
 _HEADER_FONT_COLOR = "FFF9FAFB"
 _LOGO_BG = "FF0A0D12"
+_DATA_FONT_COLOR = "FF111827"   # dark text on light pastel row fills
 _FONT_MONO = "IBM Plex Mono"
 _FONT_SANS = "IBM Plex Sans"
+
+# Light blue for Windows Desktop (10/11) rows — distinguished from the
+# standard green used for other Officially Supported OS entries.
+_WINDOWS_DESKTOP_ROW_BG = "FFD1E9FF"
 
 _VM_DETAIL_HEADERS = [
     "VM Name",
@@ -47,7 +53,6 @@ _VM_DETAIL_HEADERS = [
     "OS (Raw)",
     "OS (Interpreted)",
     "Classification",
-    "Classification Color",
     "Classification Reason",
     "Migration Path",
     "Notes",
@@ -59,7 +64,6 @@ _COLUMN_WIDTHS = {
     "OS (Raw)": 32,
     "OS (Interpreted)": 28,
     "Classification": 26,
-    "Classification Color": 18,
     "Classification Reason": 38,
     "Migration Path": 34,
     "Notes": 28,
@@ -165,21 +169,25 @@ class OutputBuilder:
         ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
 
         # Data rows (start at row 3)
+        last_data_row = header_row  # will be updated as rows are added
         for row_offset, vm in enumerate(vms):
             row_num = header_row + 1 + row_offset
-            row_fill = PatternFill(
-                start_color=TIER_ROW_BG[vm.classification_tier],
-                end_color=TIER_ROW_BG[vm.classification_tier],
-                fill_type="solid",
-            )
-            data_font = Font(name=_FONT_MONO, color="FFF9FAFB")
+            last_data_row = row_num
+
+            # Windows Desktop (10/11) gets a distinct light-blue tint
+            if "Windows Desktop" in vm.os_interpreted:
+                bg = _WINDOWS_DESKTOP_ROW_BG
+            else:
+                bg = TIER_ROW_BG[vm.classification_tier]
+
+            row_fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
+            data_font = Font(name=_FONT_MONO, color=_DATA_FONT_COLOR)
             values = [
                 vm.vm_name,
                 vm.host_cluster or "",
                 vm.os_raw,
                 vm.os_interpreted,
                 TIER_DISPLAY_NAMES[vm.classification_tier],
-                vm.classification_color,
                 vm.classification_reason,
                 vm.migration_path,
                 vm.notes or "",
@@ -192,6 +200,22 @@ class OutputBuilder:
 
         # Row height for header
         ws.row_dimensions[header_row].height = 22
+
+        # Format as Excel table (enables filter/sort dropdowns)
+        if vms:
+            last_col = get_column_letter(len(_VM_DETAIL_HEADERS))
+            tbl = Table(
+                displayName="VMDetail",
+                ref=f"A{header_row}:{last_col}{last_data_row}",
+            )
+            tbl.tableStyleInfo = TableStyleInfo(
+                name="TableStyleMedium2",
+                showFirstColumn=False,
+                showLastColumn=False,
+                showRowStripes=False,   # preserve per-tier cell fills
+                showColumnStripes=False,
+            )
+            ws.add_table(tbl)
 
     # ------------------------------------------------------------------
     # Tab 2 — Summary
