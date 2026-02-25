@@ -309,11 +309,16 @@ class OutputBuilder:
             not_supported_pct=pct(TIER_NOT_SUPPORTED),
         )
 
+        page_fill = PatternFill(start_color=_LOGO_BG, end_color=_LOGO_BG, fill_type="solid")
+        page_font = Font(name=_FONT_SANS, color="FFF9FAFB")
+
         start_row = 3
         for line_offset, line in enumerate(narrative.splitlines()):
             row_num = start_row + line_offset
             cell = ws.cell(row=row_num, column=1, value=line)
-            cell.font = Font(name=_FONT_SANS, color="FFF9FAFB")
+            cell.font = page_font
+            cell.fill = page_fill
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
 
         ws.column_dimensions["A"].width = 90
 
